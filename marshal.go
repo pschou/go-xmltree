@@ -67,7 +67,7 @@ func Encode(w io.Writer, el *Element) error {
 // successive element. Each line begins with prefix and is
 // followed by zero or more copies of indent according to the
 // nesting depth.
-func EncodeIndent(w io.Writer, el *Element) error {
+func EncodeIndent(w io.Writer, el *Element, prefix, indent string) error {
 	enc := encoder{
 		w:      w,
 		prefix: prefix,
