@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"aqwari.net/xml/xmltree"
+	"github.com/pschou/go-xmltree"
 )
 
 func ExampleElement_Search() {
