@@ -149,7 +149,6 @@ func (el *Element) SimplifyNS() {
 		}
 	}
 	if found && foundEmpty == len(el.Scope.ns)-1 {
-		fmt.Println("simply")
 		el.Scope.ns = el.Scope.ns[:foundEmpty]
 	}
 }
