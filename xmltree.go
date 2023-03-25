@@ -279,14 +279,16 @@ walk:
 	return scanner.err
 }
 
-// The walk method calls the walkFunc for each of the Element's children.
-// If the WalkFunc returns a non-nil error, Walk will return it
-// immediately.
-func (el *Element) walk(fn walkFunc) error {
+// The walk method calls Func for each of the Element's children in a
+// depth-first search order.  If the Func returns a non-nil error, Walk will
+// return it immediately.
+func (el *Element) Walk(fn func(*Element) error) (err error) {
 	for i := 0; i < len(el.Children); i++ {
-		fn(&el.Children[i])
+		if err = fn(&el.Children[i]); err != nil {
+			return
+		}
 	}
-	return nil
+	return
 }
 
 // Flatten produces a slice of Element pointers referring to
@@ -315,21 +317,22 @@ func (el *Element) SetAttr(space, local, value string) {
 
 // walkFunc is the type of the function called for each of an Element's
 // children.
-type walkFunc func(*Element)
+//type walkFunc func(*Element)
 
 // SearchFunc traverses the Element tree in depth-first order and returns
 // a slice of Elements for which the function fn returns true.
 func (root *Element) SearchFunc(fn func(*Element) bool) []*Element {
 	var results []*Element
-	var search func(el *Element)
+	var search func(el *Element) error
 
-	search = func(el *Element) {
+	search = func(el *Element) error {
 		if fn(el) {
 			results = append(results, el)
 		}
-		el.walk(search)
+		el.Walk(search)
+		return nil
 	}
-	root.walk(search)
+	root.Walk(search)
 	return results
 }
 
