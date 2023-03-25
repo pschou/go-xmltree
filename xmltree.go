@@ -134,6 +134,26 @@ func (scope *Scope) ResolveDefault(qname, defaultns string) xml.Name {
 	return xml.Name{defaultns, qname}
 }
 
+// Simplify will try to find a namespace which is already declared and
+// use that namespace for the given scope instead of a locally defined one.
+func (el *Element) SimplifyNS() {
+	var found bool
+	var foundEmpty = -1
+	for i := len(el.Scope.ns) - 1; i >= 0; i-- {
+		if el.Scope.ns[i].Space == el.Name.Space {
+			if el.Scope.ns[i].Local == "" {
+				foundEmpty = i
+			} else {
+				found = true
+			}
+		}
+	}
+	if found && foundEmpty == len(el.Scope.ns)-1 {
+		fmt.Println("simply")
+		el.Scope.ns = el.Scope.ns[:foundEmpty]
+	}
+}
+
 // Prefix is the inverse of Resolve. It uses the closest prefix
 // defined for a namespace to create a string of the form
 // prefix:local. If the namespace cannot be found, or is the
