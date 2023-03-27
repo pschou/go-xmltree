@@ -134,23 +134,80 @@ func (scope *Scope) ResolveDefault(qname, defaultns string) xml.Name {
 	return xml.Name{defaultns, qname}
 }
 
-// Simplify will try to find a namespace which is already declared and
-// use that namespace for the given scope instead of a locally defined one.
+// SimplifyNS will try to find a namespace which is already declared and is
+// used majorly in the file and use that namespace as the default instead of
+// using prefix for everies in the XML file.  Note: make sure a name is defined
+// for every prefix used in the file, or deep lying "xmlns=" may be added.
 func (el *Element) SimplifyNS() {
-	var found bool
-	var foundEmpty = -1
-	for i := len(el.Scope.ns) - 1; i >= 0; i-- {
-		if el.Scope.ns[i].Space == el.Name.Space {
-			if el.Scope.ns[i].Local == "" {
-				foundEmpty = i
-			} else {
+	var same, other int
+	el.WalkDownUntil(func(e *Element) bool {
+		if len(e.Scope.ns) > 0 && e.Scope.ns[len(e.Scope.ns)-1].Local == "" {
+			return false
+		}
+		if el.Name.Space == e.Name.Space {
+			same++
+		} else {
+			other++
+		}
+		return true
+	})
+	if same > other {
+		if len(el.Scope.ns) > 0 && el.Scope.ns[len(el.Scope.ns)-1].Local == "" {
+			// Do nothing, as things are simple as it is
+		} else {
+			var foundDefault bool
+			for i := range el.Scope.ns {
+				if el.Scope.ns[i].Local == "" {
+					// Overwrite the default
+					el.Scope.ns[i].Space = el.Name.Space
+					foundDefault = true
+				}
+			}
+			if !foundDefault {
+				el.Scope.ns = append([]xml.Name{xml.Name{Space: el.Name.Space}}, el.Scope.ns...)
+			}
+			el.WalkDownUntil(func(e *Element) bool {
+				// Locally defined new default
+				if len(e.Scope.ns) > 0 && e.Scope.ns[len(e.Scope.ns)-1].Local == "" {
+					return false
+				}
+				for i := range e.Scope.ns {
+					if e.Scope.ns[i].Local == "" {
+						// Overwrite the default
+						e.Scope.ns[i].Space = el.Name.Space
+						return true
+					}
+				}
+				e.Scope.ns = append([]xml.Name{xml.Name{Space: el.Name.Space}}, e.Scope.ns...)
+				//el.Scope.ns = append(el.Scope.ns, xml.Name{Space: el.Name.Space})
+				//el.Scope.ns = append(el.Scope.ns, xml.Name{Space: el.Name.Space})
+				return true
+			})
+		}
+	} else {
+		// Try to remove locally set ns
+		el.RemoveLocalNS()
+	}
+}
+
+// RemoteLocalNS will try to find a namespace which is already declared and use
+// that namespace prefix instead of a locally defined one.
+func (el *Element) RemoveLocalNS() error {
+	if len(el.Scope.ns) > 0 && el.Scope.ns[len(el.Scope.ns)-1].Local == "" {
+		var found bool
+		for i := len(el.Scope.ns) - 2; i >= 0; i-- {
+			if el.Scope.ns[i].Space == el.Name.Space {
 				found = true
+				break
 			}
 		}
+		if found {
+			el.Scope.ns = el.Scope.ns[:len(el.Scope.ns)-1]
+			return nil
+		}
+		return errors.New("Could not find NS to prefix with")
 	}
-	if found && foundEmpty == len(el.Scope.ns)-1 {
-		el.Scope.ns = el.Scope.ns[:foundEmpty]
-	}
+	return errors.New("No local defined, nothing done")
 }
 
 // Prefix is the inverse of Resolve. It uses the closest prefix
@@ -298,12 +355,37 @@ walk:
 	return scanner.err
 }
 
-// The walk method calls Func for each of the Element's children in a
-// depth-first search order.  If the Func returns a non-nil error, Walk will
-// return it immediately.
+// The Salk method calls Func for each of the Element's children.  If the Func
+// returns a non-nil error, Walk will return it immediately.
 func (el *Element) Walk(fn func(*Element) error) (err error) {
 	for i := 0; i < len(el.Children); i++ {
 		if err = fn(&el.Children[i]); err != nil {
+			return
+		}
+	}
+	return
+}
+
+// The WalkDownUntil method calls Func for each of the Element's children in a
+// depth-first search order.  If the Func returns true the children will
+// continue to be considered, otherwise the depth is no longer searched.
+func (el *Element) WalkDownUntil(fn func(*Element) bool) {
+	for i := 0; i < len(el.Children); i++ {
+		if fn(&el.Children[i]) {
+			el.Children[i].WalkDownUntil(fn)
+		}
+	}
+}
+
+// The WalkAll method calls Func for each of the Element's children in a
+// depth-first search order.  If the Func returns a non-nil error, WalkAll will
+// return it immediately.
+func (el *Element) WalkAll(fn func(*Element) error) (err error) {
+	for i := 0; i < len(el.Children); i++ {
+		if err = fn(&el.Children[i]); err != nil {
+			return
+		}
+		if err = el.Children[i].WalkAll(fn); err != nil {
 			return
 		}
 	}
