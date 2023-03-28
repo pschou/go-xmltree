@@ -398,6 +398,22 @@ func (el *Element) Flatten() []*Element {
 	return el.SearchFunc(func(*Element) bool { return true })
 }
 
+// DelAttr removes an XML attribute from an Element's existing Attributes.
+// If the attribute does not exist, no operation is done.
+func (el *Element) DelAttr(space, local string) {
+	for i, a := range el.StartElement.Attr {
+		if a.Name.Local != local {
+			continue
+		}
+		if space == "" || a.Name.Space == space {
+			el.StartElement.Attr = append(
+				el.StartElement.Attr[:i],
+				el.StartElement.Attr[i+1:]...)
+			return
+		}
+	}
+}
+
 // SetAttr adds an XML attribute to an Element's existing Attributes.
 // If the attribute already exists, it is replaced.
 func (el *Element) SetAttr(space, local, value string) {
