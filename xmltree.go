@@ -447,22 +447,26 @@ func (el *Element) SetAttr(space, local, value string) {
 // children.
 //type walkFunc func(*Element)
 
-// ChildrenWithLabel returns a slice of matching child Element(s)
-// with a given label.
-func (el *Element) ChildrenWithLabel(lbl string) []*Element {
+// ChildrenMatching returns a slice of matching child Element(s)
+// matching a search.
+func (el *Element) ChildrenMatching(match *ChildSearch) []*Element {
 	var matches []*Element
 	for i, child := range el.Children {
-		if strings.EqualFold(child.Name.Local, lbl) {
+		if strings.EqualFold(child.Name.Local, match.Label) {
 			matches = append(matches, &el.Children[i])
 		}
 	}
 	return matches
 }
 
-// ChildWithLabel returns a pointer to the first matching child Element with a given label.
-func (el *Element) ChildWithLabel(lbl string) *Element {
+type ChildSearch struct {
+	Label string
+}
+
+// ChildMatching returns a pointer to the first matching child Element with a given match.
+func (el *Element) ChildMatching(match *ChildSearch) *Element {
 	for i, child := range el.Children {
-		if strings.EqualFold(child.Name.Local, lbl) {
+		if strings.EqualFold(child.Name.Local, match.Label) {
 			return &el.Children[i]
 		}
 	}
