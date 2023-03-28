@@ -25,7 +25,7 @@ func ExampleElement_Search() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, el := range root.Search("", "FullName") {
+	for _, el := range root.MatchAll(&xmltree.MatchBy{Label: "FullName"}) {
 		fmt.Printf("%s\n", el.Content)
 	}
 
@@ -162,7 +162,7 @@ func ExampleUnmarshal() {
 	}
 
 	// Pull all <revision> items from the input
-	for _, el := range root.Search("", "revision") {
+	for _, el := range root.MatchAll(&xmltree.MatchBy{Label: "revision"}) {
 		var rev revision
 		if err := xmltree.Unmarshal(el, &rev); err != nil {
 			log.Print(err)
@@ -206,11 +206,10 @@ func ExampleMarshal() {
 		log.Fatal(err)
 	}
 
-	for _, el := range root.Search("", "chapter") {
-		for _, child := range el.Search("", "title") {
-			el.Content = child.Content
-		}
+	for _, el := range root.MatchAll(&xmltree.MatchBy{Label: "chapter"}) {
+		title := el.MatchOne(&xmltree.MatchBy{Label: "title"})
 		el.Children = nil
+		el.SetContent(title.GetContent())
 		chapters = append(chapters, *el)
 	}
 	root.Children = chapters

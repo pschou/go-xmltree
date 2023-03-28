@@ -176,7 +176,7 @@ func TestParse(t *testing.T) {
 func TestSearch(t *testing.T) {
 	root := parseDoc(t, exampleDoc)
 
-	result := root.Search("http://schemas.xmlsoap.org/wsdl/", "binding")
+	result := root.MatchAll(&MatchBy{Space: "http://schemas.xmlsoap.org/wsdl/", Label: "binding"})
 	if len(result) != 2 {
 		t.Errorf("Expected Search(\"http://schemas.xmlsoap.org/wsdl/\", \"binding\") to return 2 results, got %d",
 			len(result))
@@ -186,7 +186,7 @@ func TestSearch(t *testing.T) {
 func TestNSResolution(t *testing.T) {
 	root := parseDoc(t, exampleDoc)
 
-	for _, el := range root.Search("http://schemas.xmlsoap.org/wsdl/", "definitions") {
+	for _, el := range root.MatchAll(&MatchBy{Space: "http://schemas.xmlsoap.org/wsdl/", Label: "definitions"}) {
 		for _, prefix := range []string{"soap", "wsdl", "s", "soap12"} {
 			if name, ok := el.ResolveNS(prefix + ":foo"); !ok {
 				t.Errorf("Failed to resolve %s: prefix at <%s>", prefix, el.Name.Local)
@@ -224,7 +224,7 @@ func TestString(t *testing.T) {
 
 func TestSubstring(t *testing.T) {
 	root := parseDoc(t, exampleDoc)
-	for _, el := range root.Search("http://www.w3.org/2001/XMLSchema", "complexType") {
+	for _, el := range root.MatchAll(&MatchBy{Space: "http://www.w3.org/2001/XMLSchema", Label: "complexType"}) {
 		s := el.String()
 		parseDoc(t, []byte(s))
 		break
@@ -238,7 +238,7 @@ func TestModification(t *testing.T) {
 	// Remove any non-<li> children from all <ul> elements
 	// in the document.
 	valid := make([]Element, 0, len(root.Children))
-	for _, p := range root.Search("", "li") {
+	for _, p := range root.MatchAll(&MatchBy{Label: "li"}) {
 		t.Logf("%#v", *p)
 		valid = append(valid, *p)
 	}
@@ -261,7 +261,7 @@ func TestStringPreserveNS(t *testing.T) {
 	}
 	root = parseDoc(t, doc)
 	t.Logf("%s", doc)
-	if len(root.Search("http://www.w3.org/2001/XMLSchema", "sequence")) == 0 {
+	if len(root.MatchAll(&MatchBy{Space: "http://www.w3.org/2001/XMLSchema", Label: "sequence"})) == 0 {
 		t.Errorf("Could not find <s:sequence> in %s", root.String())
 	}
 }
@@ -276,7 +276,7 @@ func TestUnmarshal(t *testing.T) {
 	var v searchItem
 	const changedURL = "http://i-changed-this/"
 	var item *Element
-	for _, item = range root.Search("", "item") {
+	for _, item = range root.MatchAll(&MatchBy{Label: "item"}) {
 		for i, c := range item.Children {
 			if c.Name.Local == "URL" {
 				item.Children[i].Content = []byte(changedURL)

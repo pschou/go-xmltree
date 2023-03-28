@@ -54,8 +54,13 @@ type Element struct {
 
 // SetContent sets the value of the content escaping any HTML entities
 func (el *Element) SetContent(text string) {
-	el.Content = []byte(html.EscapeString(text))
+	el.Content = []byte(htmlEscaper.Replace(text))
 }
+
+var htmlEscaper = strings.NewReplacer(
+	`<`, "&lt;",
+	`>`, "&gt;",
+)
 
 // GetContent gets the value of the content while unescaping any HTML entities
 func (el *Element) GetContent() string {
@@ -452,9 +457,9 @@ func (el *Element) SetAttr(space, local, value string) {
 // children.
 //type walkFunc func(*Element)
 
-// Matches returns a slice of matching child Element(s)
+// Match returns a slice of matching child Element(s)
 // matching a search.
-func (el *Element) Matches(match *MatchBy) []*Element {
+func (el *Element) Match(match *MatchBy) []*Element {
 	var matches []*Element
 	if el != nil {
 		for i, child := range el.Children {
@@ -471,8 +476,9 @@ type MatchBy struct {
 	Label, Space string
 }
 
-// Match returns a pointer to the first matching child Element with a given match.
-func (el *Element) Match(match *MatchBy) *Element {
+// MatchOne returns a pointer to the first matching child of Element with a
+// given match or nil if none matched.
+func (el *Element) MatchOne(match *MatchBy) *Element {
 	if el != nil {
 		for i, child := range el.Children {
 			if child.Name.Local == match.Label &&
@@ -480,6 +486,18 @@ func (el *Element) Match(match *MatchBy) *Element {
 				return &el.Children[i]
 			}
 		}
+	}
+	return nil
+}
+
+// MatchAll returns a slice of matching child Element(s)
+// in a depth-first-search matching a search.
+func (el *Element) MatchAll(match *MatchBy) []*Element {
+	if el != nil {
+		return el.SearchFunc(func(e *Element) bool {
+			return e.Name.Local == match.Label &&
+				(match.Space == "" || match.Space == e.Name.Space)
+		})
 	}
 	return nil
 }
@@ -499,16 +517,4 @@ func (root *Element) SearchFunc(fn func(*Element) bool) []*Element {
 	}
 	root.WalkFunc(search)
 	return results
-}
-
-// Search searches the Element tree for Elements with an xml tag
-// matching the name and xml namespace. If space is the empty string,
-// any namespace is matched.
-func (root *Element) Search(space, local string) []*Element {
-	return root.SearchFunc(func(el *Element) bool {
-		if local != el.Name.Local {
-			return false
-		}
-		return space == "" || space == el.Name.Space
-	})
 }
