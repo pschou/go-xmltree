@@ -447,14 +447,16 @@ func (el *Element) SetAttr(space, local, value string) {
 // children.
 //type walkFunc func(*Element)
 
-// ChildrenMatching returns a slice of matching child Element(s)
+// Matches returns a slice of matching child Element(s)
 // matching a search.
-func (el *Element) ChildrenMatching(match *ChildSearch) []*Element {
+func (el *Element) Matches(match *ChildSearch) []*Element {
 	var matches []*Element
-	for i, child := range el.Children {
-		if child.Name.Local == match.Label &&
-			(match.Space == "" || match.Space == child.Name.Space) {
-			matches = append(matches, &el.Children[i])
+	if el != nil {
+		for i, child := range el.Children {
+			if child.Name.Local == match.Label &&
+				(match.Space == "" || match.Space == child.Name.Space) {
+				matches = append(matches, &el.Children[i])
+			}
 		}
 	}
 	return matches
@@ -464,12 +466,14 @@ type ChildSearch struct {
 	Label, Space string
 }
 
-// ChildMatching returns a pointer to the first matching child Element with a given match.
-func (el *Element) ChildMatching(match *ChildSearch) *Element {
-	for i, child := range el.Children {
-		if child.Name.Local == match.Label &&
-			(match.Space == "" || match.Space == child.Name.Space) {
-			return &el.Children[i]
+// Match returns a pointer to the first matching child Element with a given match.
+func (el *Element) Match(match *ChildSearch) *Element {
+	if el != nil {
+		for i, child := range el.Children {
+			if child.Name.Local == match.Label &&
+				(match.Space == "" || match.Space == child.Name.Space) {
+				return &el.Children[i]
+			}
 		}
 	}
 	return nil
