@@ -449,7 +449,7 @@ func (el *Element) SetAttr(space, local, value string) {
 
 // Matches returns a slice of matching child Element(s)
 // matching a search.
-func (el *Element) Matches(match *MatchSearch) []*Element {
+func (el *Element) Matches(match *MatchBy) []*Element {
 	var matches []*Element
 	if el != nil {
 		for i, child := range el.Children {
@@ -462,12 +462,12 @@ func (el *Element) Matches(match *MatchSearch) []*Element {
 	return matches
 }
 
-type MatchSearch struct {
+type MatchBy struct {
 	Label, Space string
 }
 
 // Match returns a pointer to the first matching child Element with a given match.
-func (el *Element) Match(match *MatchSearch) *Element {
+func (el *Element) Match(match *MatchBy) *Element {
 	if el != nil {
 		for i, child := range el.Children {
 			if child.Name.Local == match.Label &&
