@@ -59,7 +59,10 @@ func (el *Element) SetContent(text string) {
 
 // GetContent gets the value of the content while unescaping any HTML entities
 func (el *Element) GetContent() string {
-	return html.UnescapeString(string(el.Content))
+	if el != nil {
+		return html.UnescapeString(string(el.Content))
+	}
+	return ""
 }
 
 // Attr gets the value of the first attribute whose name matches the
@@ -67,12 +70,14 @@ func (el *Element) GetContent() string {
 // attributes' local names are considered when looking for a match.
 // If an attribute could not be found, the empty string is returned.
 func (el *Element) Attr(space, local string) string {
-	for _, v := range el.StartElement.Attr {
-		if v.Name.Local != local {
-			continue
-		}
-		if space == "" || space == v.Name.Space {
-			return v.Value
+	if el != nil {
+		for _, v := range el.StartElement.Attr {
+			if v.Name.Local != local {
+				continue
+			}
+			if space == "" || space == v.Name.Space {
+				return v.Value
+			}
 		}
 	}
 	return ""
