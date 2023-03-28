@@ -11,6 +11,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"sort"
 	"strings"
@@ -49,6 +50,16 @@ type Element struct {
 	Content []byte
 	// Sub-elements contained within this element.
 	Children []Element
+}
+
+// SetContent sets the value of the content escaping any HTML entities
+func (el *Element) SetContent(text string) {
+	el.Content = []byte(html.EscapeString(text))
+}
+
+// GetContent gets the value of the content while unescaping any HTML entities
+func (el *Element) GetContent() string {
+	return html.UnescapeString(string(el.Content))
 }
 
 // Attr gets the value of the first attribute whose name matches the
