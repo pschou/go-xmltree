@@ -357,7 +357,7 @@ walk:
 
 // The Salk method calls Func for each of the Element's children.  If the Func
 // returns a non-nil error, Walk will return it immediately.
-func (el *Element) Walk(fn func(*Element) error) (err error) {
+func (el *Element) WalkFunc(fn func(*Element) error) (err error) {
 	for i := 0; i < len(el.Children); i++ {
 		if err = fn(&el.Children[i]); err != nil {
 			return
@@ -436,6 +436,28 @@ func (el *Element) SetAttr(space, local, value string) {
 // children.
 //type walkFunc func(*Element)
 
+// ChildrenWithLabel returns a slice of matching child Element(s)
+// with a given label.
+func (el *Element) ChildrenWithLabel(lbl string) []*Element {
+	var matches []*Element
+	for i, child := range el.Children {
+		if strings.EqualFold(child.Name.Local, lbl) {
+			matches = append(matches, &el.Children[i])
+		}
+	}
+	return matches
+}
+
+// ChildWithLabel returns a pointer to the first matching child Element with a given label.
+func (el *Element) ChildWithLabel(lbl string) *Element {
+	for i, child := range el.Children {
+		if strings.EqualFold(child.Name.Local, lbl) {
+			return &el.Children[i]
+		}
+	}
+	return nil
+}
+
 // SearchFunc traverses the Element tree in depth-first order and returns
 // a slice of Elements for which the function fn returns true.
 func (root *Element) SearchFunc(fn func(*Element) bool) []*Element {
@@ -446,10 +468,10 @@ func (root *Element) SearchFunc(fn func(*Element) bool) []*Element {
 		if fn(el) {
 			results = append(results, el)
 		}
-		el.Walk(search)
+		el.WalkFunc(search)
 		return nil
 	}
-	root.Walk(search)
+	root.WalkFunc(search)
 	return results
 }
 

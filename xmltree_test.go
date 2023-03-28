@@ -161,8 +161,8 @@ func TestParse(t *testing.T) {
 		Data []byte `xml:",innerxml"`
 	}
 	el := parseDoc(t, exampleDoc)
-	el.Walk(func(el *Element) error {
-		el.Walk(func(el *Element) error {
+	el.WalkFunc(func(el *Element) error {
+		el.WalkFunc(func(el *Element) error {
 			if err := Unmarshal(el, &buf); err != nil {
 				t.Error(err)
 			}
