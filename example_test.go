@@ -25,7 +25,7 @@ func ExampleElement_Search() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, el := range root.MatchAll(&xmltree.MatchBy{Label: "FullName"}) {
+	for _, el := range root.Find(&xmltree.Selector{Label: "FullName"}) {
 		fmt.Printf("%s\n", el.Content)
 	}
 
@@ -55,7 +55,7 @@ func ExampleElement_Resolve() {
 	}
 
 	// Flatten the tree in depth-first order
-	flattened := root.SearchFunc(func(*xmltree.Element) bool { return true })
+	flattened := root.FindFunc(func(*xmltree.Element) bool { return true })
 
 	fmt.Printf("%s <%s>\n", root.Resolve("ns:foo").Space, root.Name.Local)
 	for _, el := range flattened {
@@ -72,7 +72,7 @@ func ExampleElement_Resolve() {
 	// http://ns4.net/ <name>
 }
 
-func ExampleElement_SearchFunc() {
+func ExampleElement_FindFunc() {
 	data := `
 	  <People>
         <Person>
@@ -102,7 +102,7 @@ func ExampleElement_SearchFunc() {
 		log.Fatal(err)
 	}
 
-	workEmails := root.SearchFunc(func(el *xmltree.Element) bool {
+	workEmails := root.FindFunc(func(el *xmltree.Element) bool {
 		return el.Name.Local == "Email" && el.Attr("", "where") == "work"
 	})
 
@@ -162,7 +162,7 @@ func ExampleUnmarshal() {
 	}
 
 	// Pull all <revision> items from the input
-	for _, el := range root.MatchAll(&xmltree.MatchBy{Label: "revision"}) {
+	for _, el := range root.Find(&xmltree.Selector{Label: "revision"}) {
 		var rev revision
 		if err := xmltree.Unmarshal(el, &rev); err != nil {
 			log.Print(err)
@@ -206,8 +206,8 @@ func ExampleMarshal() {
 		log.Fatal(err)
 	}
 
-	for _, el := range root.MatchAll(&xmltree.MatchBy{Label: "chapter"}) {
-		title := el.MatchOne(&xmltree.MatchBy{Label: "title"})
+	for _, el := range root.Find(&xmltree.Selector{Label: "chapter"}) {
+		title := el.MatchOne(&xmltree.Selector{Label: "title"})
 		el.Children = nil
 		el.SetContent(title.GetContent())
 		chapters = append(chapters, *el)

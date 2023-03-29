@@ -35,12 +35,23 @@ func (x byXMLName) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
 var errDeepXML = errors.New("xmltree: xml document too deeply nested")
 
+type Kind uint8
+
+const (
+	XML_Tag = Kind(iota)
+	XML_Blob
+	XML_Comment
+)
+
 // An Element represents a single element in an XML document. Elements
 // may have zero or more children. The byte array used by the Content
 // field is shared among all elements in the document, and should not
 // be modified. An Element also captures xml namespace prefixes, so
 // that arbitrary QNames in attribute values can be resolved.
 type Element struct {
+	// What is this element's kind
+	Type Kind
+	// Details about the Element if is a labeled tag
 	xml.StartElement
 	// The XML namespace scope at this element's location in the
 	// document.
@@ -161,7 +172,7 @@ func (scope *Scope) ResolveDefault(qname, defaultns string) xml.Name {
 // for every prefix used in the file, or deep lying "xmlns=" may be added.
 func (el *Element) SimplifyNS() {
 	var same, other int
-	el.WalkDownUntil(func(e *Element) bool {
+	el.WalkDepthFunc(func(e *Element) bool {
 		if len(e.Scope.ns) > 0 && e.Scope.ns[len(e.Scope.ns)-1].Local == "" {
 			return false
 		}
@@ -187,7 +198,7 @@ func (el *Element) SimplifyNS() {
 			if !foundDefault {
 				el.Scope.ns = append([]xml.Name{xml.Name{Space: el.Name.Space}}, el.Scope.ns...)
 			}
-			el.WalkDownUntil(func(e *Element) bool {
+			el.WalkDepthFunc(func(e *Element) bool {
 				// Locally defined new default
 				if len(e.Scope.ns) > 0 && e.Scope.ns[len(e.Scope.ns)-1].Local == "" {
 					return false
@@ -368,7 +379,9 @@ walk:
 			if tok.Name != el.Name {
 				return fmt.Errorf("Expecting </%s>, got </%s>", el.Prefix(el.Name), el.Prefix(tok.Name))
 			}
-			el.Content = data[int(begin):int(end)]
+			if len(el.Children) == 0 {
+				el.Content = data[int(begin):int(end)]
+			}
 			break walk
 		}
 		end = scanner.InputOffset()
@@ -376,38 +389,51 @@ walk:
 	return scanner.err
 }
 
-// The Salk method calls Func for each of the Element's children.  If the Func
-// returns a non-nil error, Walk will return it immediately.
-func (el *Element) WalkFunc(fn func(*Element) error) (err error) {
-	for i := 0; i < len(el.Children); i++ {
-		if err = fn(&el.Children[i]); err != nil {
-			return
+// The Each method calls Func for each of the Element's children.  If the Func
+// returns a non-nil error, Each will return it immediately.
+func (el *Element) Each(fn func(*Element) error) (err error) {
+	if el != nil {
+		for i := 0; i < len(el.Children); i++ {
+			if err = fn(&el.Children[i]); err != nil {
+				return
+			}
 		}
 	}
 	return
 }
 
-// The WalkDownUntil method calls Func for each of the Element's children in a
-// depth-first search order.  If the Func returns true the children will
+// The WalkDepthFunc method calls Func for each of the Element's children in a
+// depth-first order.  If the Func returns true the children will
 // continue to be considered, otherwise the depth is no longer searched.
-func (el *Element) WalkDownUntil(fn func(*Element) bool) {
-	for i := 0; i < len(el.Children); i++ {
-		if fn(&el.Children[i]) {
-			el.Children[i].WalkDownUntil(fn)
+func (el *Element) WalkDepthFunc(fn func(*Element) bool) {
+	el.walkDepthDeep(fn, recursionLimit)
+}
+
+func (el *Element) walkDepthDeep(fn func(*Element) bool, n int) {
+	if n--; n >= 0 {
+		for i := 0; i < len(el.Children); i++ {
+			if fn(&el.Children[i]) {
+				el.Children[i].walkDepthDeep(fn, n)
+			}
 		}
 	}
 }
 
-// The WalkAll method calls Func for each of the Element's children in a
-// depth-first search order.  If the Func returns a non-nil error, WalkAll will
+// The WalkFunc method calls Func for each of the Element's children in a
+// depth-first order.  If the Func returns a non-nil error, WalkFunc will
 // return it immediately.
-func (el *Element) WalkAll(fn func(*Element) error) (err error) {
-	for i := 0; i < len(el.Children); i++ {
-		if err = fn(&el.Children[i]); err != nil {
-			return
-		}
-		if err = el.Children[i].WalkAll(fn); err != nil {
-			return
+func (el *Element) WalkFunc(fn func(*Element) error) (err error) {
+	return el.walkFuncDeep(fn, recursionLimit)
+}
+func (el *Element) walkFuncDeep(fn func(*Element) error, n int) (err error) {
+	if n--; n >= 0 {
+		for i := 0; i < len(el.Children); i++ {
+			if err = fn(&el.Children[i]); err != nil {
+				return
+			}
+			if err = el.Children[i].walkFuncDeep(fn, n); err != nil {
+				return
+			}
 		}
 	}
 	return
@@ -416,7 +442,7 @@ func (el *Element) WalkAll(fn func(*Element) error) (err error) {
 // Flatten produces a slice of Element pointers referring to
 // the children of el, and their children, in depth-first order.
 func (el *Element) Flatten() []*Element {
-	return el.SearchFunc(func(*Element) bool { return true })
+	return el.FindFunc(func(*Element) bool { return true })
 }
 
 // DelAttr removes an XML attribute from an Element's existing Attributes.
@@ -459,7 +485,7 @@ func (el *Element) SetAttr(space, local, value string) {
 
 // Match returns a slice of matching child Element(s)
 // matching a search.
-func (el *Element) Match(match *MatchBy) []*Element {
+func (el *Element) Match(match *Selector) []*Element {
 	var matches []*Element
 	if el != nil {
 		for i, child := range el.Children {
@@ -472,13 +498,14 @@ func (el *Element) Match(match *MatchBy) []*Element {
 	return matches
 }
 
-type MatchBy struct {
+type Selector struct {
 	Label, Space string
+	Depth        int
 }
 
 // MatchOne returns a pointer to the first matching child of Element with a
 // given match or nil if none matched.
-func (el *Element) MatchOne(match *MatchBy) *Element {
+func (el *Element) MatchOne(match *Selector) *Element {
 	if el != nil {
 		for i, child := range el.Children {
 			if child.Name.Local == match.Label &&
@@ -490,31 +517,65 @@ func (el *Element) MatchOne(match *MatchBy) *Element {
 	return nil
 }
 
-// MatchAll returns a slice of matching child Element(s)
-// in a depth-first-search matching a search.
-func (el *Element) MatchAll(match *MatchBy) []*Element {
+// FindOne returns a pointer to the first matching child of Element
+// with a given match or nil if none matched.
+func (el *Element) FindOne(match *Selector) *Element {
+	if match.Depth > 0 {
+		return el.matchAnyDeep(match, match.Depth)
+	}
+	return el.matchAnyDeep(match, recursionLimit)
+}
+func (el *Element) matchAnyDeep(match *Selector, d int) *Element {
 	if el != nil {
-		return el.SearchFunc(func(e *Element) bool {
-			return e.Name.Local == match.Label &&
-				(match.Space == "" || match.Space == e.Name.Space)
-		})
+		if e := el.MatchOne(match); e != nil {
+			return e
+		}
+		if d > 0 {
+			d--
+			for i := range el.Children {
+				if e := el.Children[i].matchAnyDeep(match, d-1); e != nil {
+					return e
+				}
+			}
+		}
 	}
 	return nil
 }
 
-// SearchFunc traverses the Element tree in depth-first order and returns
-// a slice of Elements for which the function fn returns true.
-func (root *Element) SearchFunc(fn func(*Element) bool) []*Element {
+// Find returns a slice of matching child Element(s)
+// in a depth-first matching a search.
+func (el *Element) Find(match *Selector) []*Element {
 	var results []*Element
-	var search func(el *Element) error
 
-	search = func(el *Element) error {
+	n := match.Depth
+	if n < 1 {
+		n = recursionLimit
+	}
+
+	search := func(el *Element) error {
+		if el.Name.Local == match.Label &&
+			(match.Space == "" || match.Space == el.Name.Space) {
+			results = append(results, el)
+		}
+		return nil
+	}
+	el.walkFuncDeep(search, n)
+
+	return results
+}
+
+// FindFunc traverses the Element tree in depth-first order and returns
+// a slice of Elements for which the function fn returns true.
+func (el *Element) FindFunc(fn func(*Element) bool) []*Element {
+	var results []*Element
+
+	search := func(el *Element) error {
 		if fn(el) {
 			results = append(results, el)
 		}
-		el.WalkFunc(search)
 		return nil
 	}
-	root.WalkFunc(search)
+	el.WalkFunc(search)
+
 	return results
 }
