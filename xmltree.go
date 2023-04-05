@@ -68,6 +68,7 @@ type Element struct {
 var htmlEscaper = strings.NewReplacer(
 	`<`, "&lt;",
 	`>`, "&gt;",
+	`&`, "&amp;",
 )
 
 // The JoinScope method joins two Scopes together. When resolving
