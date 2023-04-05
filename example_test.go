@@ -1,8 +1,10 @@
 package xmltree_test
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/pschou/go-xmltree"
 )
@@ -21,7 +23,7 @@ func ExampleElement_Search() {
         </Person>
     </Staff>
 	`
-	root, err := xmltree.Parse([]byte(data))
+	root, err := xmltree.ParseXML(strings.NewReader(data))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,7 +51,7 @@ func ExampleElement_Resolve() {
       </record>
     </collection>
 	`
-	root, err := xmltree.Parse([]byte(data))
+	root, err := xmltree.ParseXML(strings.NewReader(data))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,7 +99,7 @@ func ExampleElement_FindFunc() {
     </People>
 	`
 
-	root, err := xmltree.Parse([]byte(data))
+	root, err := xmltree.ParseXML(strings.NewReader(data))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,7 +158,7 @@ func ExampleUnmarshal() {
 		Text        []string `xml:"text"`
 	}
 
-	root, err := xmltree.Parse(input)
+	root, err := xmltree.ParseXML(bytes.NewReader(input))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -201,7 +203,7 @@ func ExampleMarshal() {
 	</toc>`)
 
 	var chapters []xmltree.Element
-	root, err := xmltree.Parse(input)
+	root, err := xmltree.ParseXML(bytes.NewReader(input))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -241,7 +243,7 @@ func ExampleMarshalNested() {
 	  </level1>
 	</toc>`)
 
-	parsed, err := xmltree.Parse(input)
+	parsed, err := xmltree.ParseXML(bytes.NewReader(input))
 	if err != nil {
 		log.Fatal(err.Error())
 	}

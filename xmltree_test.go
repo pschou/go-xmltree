@@ -1,6 +1,7 @@
 package xmltree
 
 import (
+	"bytes"
 	"encoding/xml"
 	"io/ioutil"
 	"strings"
@@ -141,7 +142,15 @@ var exampleDoc = []byte(`<?xml version="1.0" encoding="utf-8"?>
 </wsdl:definitions>`)
 
 func parseDoc(t *testing.T, document []byte) *Element {
-	root, err := Parse(document)
+	root, err := ParseXML(bytes.NewReader(document))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func parseFullDoc(t *testing.T, document []byte) *Element {
+	root, err := Parse(bytes.NewReader(document))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +276,7 @@ func TestStringPreserveNS(t *testing.T) {
 }
 
 func TestUnmarshal(t *testing.T) {
-	root := parseDoc(t, googleSOAP)
+	root := parseFullDoc(t, googleSOAP)
 	type searchItem struct {
 		CachedSize string `xml:"urn:GoogleSearch cachedSize"`
 		Title      string `xml:"urn:GoogleSearch title"`
@@ -295,6 +304,7 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("modification to <item> URL field was not respected: %s != %s", v.URL, changedURL)
 	}
 	t.Logf("%#v", v)
+	//fmt.Println(string(Marshal(root)))
 }
 
 func TestCharset(t *testing.T) {

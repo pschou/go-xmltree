@@ -38,9 +38,11 @@ var errDeepXML = errors.New("xmltree: xml document too deeply nested")
 type Kind uint8
 
 const (
-	XML_Tag = Kind(iota)
-	XML_Blob
+	XML_Tag      = Kind(0)
+	XML_CharData = Kind(1 << iota)
 	XML_Comment
+	XML_ProcInst
+	XML_Directive
 )
 
 // An Element represents a single element in an XML document. Elements
@@ -77,24 +79,6 @@ var htmlEscaper = strings.NewReplacer(
 func (el *Element) GetContent() string {
 	if el != nil {
 		return html.UnescapeString(string(el.Content))
-	}
-	return ""
-}
-
-// Attr gets the value of the first attribute whose name matches the
-// space and local arguments. If space is the empty string, only
-// attributes' local names are considered when looking for a match.
-// If an attribute could not be found, the empty string is returned.
-func (el *Element) Attr(space, local string) string {
-	if el != nil {
-		for _, v := range el.StartElement.Attr {
-			if v.Name.Local != local {
-				continue
-			}
-			if space == "" || space == v.Name.Space {
-				return v.Value
-			}
-		}
 	}
 	return ""
 }
@@ -310,36 +294,14 @@ func (s *scanner) scan() bool {
 	return s.err == nil
 }
 
-// Parse builds a tree of Elements by reading an XML document.  The
-// byte slice passed to Parse is expected to be a valid XML document
-// with a single root element.
-func Parse(doc []byte) (*Element, error) {
-	d := xml.NewDecoder(bytes.NewReader(doc))
+// Parse builds a tree of Elements by reading an XML document.
+// The reader passed to Parse is expected to be a valid XML
+// document with a single root element.  All non XML Tag elements and Tagged
+// content will be omitted from the tree (such as comments).
+func Parse(doc io.Reader) (*Element, error) {
+	d := xml.NewDecoder(doc)
+	d.CharsetReader = charset.NewReaderLabel
 
-	// The xmltree package, when constructing the tree, takes slices
-	// of the source document for chardata (data between tags). To do
-	// this, it takes the position of the Decoder in the utf-8 input
-	// stream. If the source document is not utf8, the position may be
-	// incorrect and cause invalid data or a run-time panic. So we copy
-	// the utf8 conversion to an internal buffer.
-	utf8buf := bytes.NewBuffer(doc[:0])
-	d.CharsetReader = func(label string, r io.Reader) (io.Reader, error) {
-		utf8input, err := charset.NewReaderLabel(label, r)
-		if err != nil {
-			return nil, err
-		}
-		// At this point, the encoding/xml package has already
-		// parsed the <?xml?> header. To be able to index
-		// into the document, we need to account for this.
-		padding := make([]byte, int(d.InputOffset()))
-		utf8buf.Write(padding)
-
-		_, err = io.Copy(utf8buf, utf8input)
-		if err != nil {
-			return nil, err
-		}
-		return bytes.NewReader(utf8buf.Bytes()[len(padding)+1:]), nil
-	}
 	scanner := scanner{Decoder: d}
 	root := new(Element)
 
@@ -352,26 +314,53 @@ func Parse(doc []byte) (*Element, error) {
 	if scanner.err != nil {
 		return nil, scanner.err
 	}
-	if err := root.parse(&scanner, utf8buf.Bytes(), 0); err != nil {
+	if err := root.parse(&scanner, Kind(0xff), 0); err != nil {
 		return nil, err
 	}
 	return root, nil
 }
 
-func (el *Element) parse(scanner *scanner, data []byte, depth int) error {
+// ParseXML builds a tree of Elements by reading an XML document for tagged
+// entities only.  The reader passed to Parse is expected to be a valid XML
+// document with a single root element.  All non XML Tag elements and Tagged
+// content will be omitted from the tree (such as comments).
+func ParseXML(doc io.Reader) (*Element, error) {
+	d := xml.NewDecoder(doc)
+	d.CharsetReader = charset.NewReaderLabel
+
+	scanner := scanner{Decoder: d}
+	root := new(Element)
+
+	for scanner.scan() {
+		if start, ok := scanner.tok.(xml.StartElement); ok {
+			root.StartElement = start
+			break
+		}
+	}
+	if scanner.err != nil {
+		return nil, scanner.err
+	}
+	if err := root.parse(&scanner, XML_Tag, 0); err != nil {
+		return nil, err
+	}
+	return root, nil
+}
+
+func (el *Element) parse(scanner *scanner, keepKinds Kind, depth int) error {
 	if depth > recursionLimit {
 		return errDeepXML
 	}
 	el.StartElement.Attr = el.pushNS(el.StartElement)
 
-	begin := scanner.InputOffset()
-	end := begin
+	//scanner.InputOffset()
+	var charDat bytes.Buffer
+
 walk:
 	for scanner.scan() {
 		switch tok := scanner.tok.(type) {
 		case xml.StartElement:
-			child := Element{StartElement: tok.Copy(), Scope: el.Scope}
-			if err := child.parse(scanner, data, depth+1); err != nil {
+			child := Element{Type: XML_Tag, StartElement: tok.Copy(), Scope: el.Scope}
+			if err := child.parse(scanner, keepKinds, depth+1); err != nil {
 				return err
 			}
 			el.Children = append(el.Children, child)
@@ -379,203 +368,39 @@ walk:
 			if tok.Name != el.Name {
 				return fmt.Errorf("Expecting </%s>, got </%s>", el.Prefix(el.Name), el.Prefix(tok.Name))
 			}
-			if len(el.Children) == 0 {
-				el.Content = data[int(begin):int(end)]
+			if keepKinds&XML_CharData == XML_CharData && len(el.Children) == 1 && el.Children[0].Type == XML_CharData {
+				el.Content = el.Children[0].Content
+				el.Children = nil
+			} else {
+				el.Content = charDat.Bytes()
 			}
 			break walk
+		case xml.CharData:
+			if keepKinds&XML_CharData == XML_CharData {
+				child := Element{Type: XML_CharData, Content: []byte(strings.TrimSpace(string(tok)))}
+				if len(child.Content) > 0 {
+					el.Children = append(el.Children, child)
+				}
+			} else {
+				charDat.Write([]byte(tok))
+			}
+		case xml.Comment:
+			if keepKinds&XML_Comment == XML_Comment {
+				child := Element{Type: XML_Comment, Content: []byte(tok.Copy())}
+				el.Children = append(el.Children, child)
+			}
+		case xml.ProcInst:
+			if keepKinds&XML_ProcInst == XML_ProcInst {
+				child := Element{Type: XML_ProcInst, Content: []byte(tok.Copy().Inst)}
+				el.Children = append(el.Children, child)
+			}
+		case xml.Directive:
+			if keepKinds&XML_Directive == XML_Directive {
+				child := Element{Type: XML_Directive, Content: []byte(tok.Copy())}
+				el.Children = append(el.Children, child)
+			}
 		}
-		end = scanner.InputOffset()
+		//end = scanner.InputOffset()
 	}
 	return scanner.err
-}
-
-// The Each method calls Func for each of the Element's children.  If the Func
-// returns a non-nil error, Each will return it immediately.
-func (el *Element) Each(fn func(*Element) error) (err error) {
-	if el != nil {
-		for i := 0; i < len(el.Children); i++ {
-			if err = fn(&el.Children[i]); err != nil {
-				return
-			}
-		}
-	}
-	return
-}
-
-// The WalkDepthFunc method calls Func for each of the Element's children in a
-// depth-first order.  If the Func returns true the children will
-// continue to be considered, otherwise the depth is no longer searched.
-func (el *Element) WalkDepthFunc(fn func(*Element) bool) {
-	el.walkDepthDeep(fn, recursionLimit)
-}
-
-func (el *Element) walkDepthDeep(fn func(*Element) bool, n int) {
-	if n--; n >= 0 {
-		for i := 0; i < len(el.Children); i++ {
-			if fn(&el.Children[i]) {
-				el.Children[i].walkDepthDeep(fn, n)
-			}
-		}
-	}
-}
-
-// The WalkFunc method calls Func for each of the Element's children in a
-// depth-first order.  If the Func returns a non-nil error, WalkFunc will
-// return it immediately.
-func (el *Element) WalkFunc(fn func(*Element) error) (err error) {
-	return el.walkFuncDeep(fn, recursionLimit)
-}
-func (el *Element) walkFuncDeep(fn func(*Element) error, n int) (err error) {
-	if n--; n >= 0 {
-		for i := 0; i < len(el.Children); i++ {
-			if err = fn(&el.Children[i]); err != nil {
-				return
-			}
-			if err = el.Children[i].walkFuncDeep(fn, n); err != nil {
-				return
-			}
-		}
-	}
-	return
-}
-
-// Flatten produces a slice of Element pointers referring to
-// the children of el, and their children, in depth-first order.
-func (el *Element) Flatten() []*Element {
-	return el.FindFunc(func(*Element) bool { return true })
-}
-
-// DelAttr removes an XML attribute from an Element's existing Attributes.
-// If the attribute does not exist, no operation is done.
-func (el *Element) DelAttr(space, local string) {
-	for i, a := range el.StartElement.Attr {
-		if a.Name.Local != local {
-			continue
-		}
-		if space == "" || a.Name.Space == space {
-			el.StartElement.Attr = append(
-				el.StartElement.Attr[:i],
-				el.StartElement.Attr[i+1:]...)
-			return
-		}
-	}
-}
-
-// SetAttr adds an XML attribute to an Element's existing Attributes.
-// If the attribute already exists, it is replaced.
-func (el *Element) SetAttr(space, local, value string) {
-	for i, a := range el.StartElement.Attr {
-		if a.Name.Local != local {
-			continue
-		}
-		if space == "" || a.Name.Space == space {
-			el.StartElement.Attr[i].Value = value
-			return
-		}
-	}
-	el.StartElement.Attr = append(el.StartElement.Attr, xml.Attr{
-		Name:  xml.Name{space, local},
-		Value: value,
-	})
-}
-
-// walkFunc is the type of the function called for each of an Element's
-// children.
-//type walkFunc func(*Element)
-
-// Match returns a slice of matching child Element(s)
-// matching a search.
-func (el *Element) Match(match *Selector) []*Element {
-	var matches []*Element
-	if el != nil {
-		for i, child := range el.Children {
-			if child.Name.Local == match.Label &&
-				(match.Space == "" || match.Space == child.Name.Space) {
-				matches = append(matches, &el.Children[i])
-			}
-		}
-	}
-	return matches
-}
-
-type Selector struct {
-	Label, Space string
-	Depth        int
-}
-
-// MatchOne returns a pointer to the first matching child of Element with a
-// given match or nil if none matched.
-func (el *Element) MatchOne(match *Selector) *Element {
-	if el != nil {
-		for i, child := range el.Children {
-			if child.Name.Local == match.Label &&
-				(match.Space == "" || match.Space == child.Name.Space) {
-				return &el.Children[i]
-			}
-		}
-	}
-	return nil
-}
-
-// FindOne returns a pointer to the first matching child of Element
-// with a given match or nil if none matched.
-func (el *Element) FindOne(match *Selector) *Element {
-	if match.Depth > 0 {
-		return el.matchAnyDeep(match, match.Depth)
-	}
-	return el.matchAnyDeep(match, recursionLimit)
-}
-func (el *Element) matchAnyDeep(match *Selector, d int) *Element {
-	if el != nil {
-		if e := el.MatchOne(match); e != nil {
-			return e
-		}
-		if d > 0 {
-			d--
-			for i := range el.Children {
-				if e := el.Children[i].matchAnyDeep(match, d-1); e != nil {
-					return e
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// Find returns a slice of matching child Element(s)
-// in a depth-first matching a search.
-func (el *Element) Find(match *Selector) []*Element {
-	var results []*Element
-
-	n := match.Depth
-	if n < 1 {
-		n = recursionLimit
-	}
-
-	search := func(el *Element) error {
-		if el.Name.Local == match.Label &&
-			(match.Space == "" || match.Space == el.Name.Space) {
-			results = append(results, el)
-		}
-		return nil
-	}
-	el.walkFuncDeep(search, n)
-
-	return results
-}
-
-// FindFunc traverses the Element tree in depth-first order and returns
-// a slice of Elements for which the function fn returns true.
-func (el *Element) FindFunc(fn func(*Element) bool) []*Element {
-	var results []*Element
-
-	search := func(el *Element) error {
-		if fn(el) {
-			results = append(results, el)
-		}
-		return nil
-	}
-	el.WalkFunc(search)
-
-	return results
 }

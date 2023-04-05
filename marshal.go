@@ -95,35 +95,60 @@ type encoder struct {
 // just defining everything at the top level because there may be conflicts
 // introduced by the modifications.
 func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) error {
-	if len(visited) > recursionLimit {
-		// We only return I/O errors
-		return nil
-	}
-	if _, ok := visited[el]; ok {
-		// We have a cycle. Leave a comment, but no error
-		e.w.Write([]byte("<!-- cycle detected -->"))
-		return nil
-	}
-	scope := diffScope(parent, el)
-	if err := e.encodeOpenTag(el, scope, len(visited)); err != nil {
-		return err
-	}
-	if len(el.Children) == 0 {
-		if len(el.Content) > 0 {
-			e.w.Write(el.Content)
-		} else {
+	switch el.Type {
+	case XML_CharData:
+		if e.pretty {
+			for i := 0; i < len(visited); i++ {
+				io.WriteString(e.w, e.indent)
+			}
+		}
+		e.w.Write(el.Content)
+		if e.pretty {
+			e.w.Write([]byte{'\n'})
+		}
+	case XML_Comment:
+		if e.pretty {
+			for i := 0; i < len(visited); i++ {
+				io.WriteString(e.w, e.indent)
+			}
+		}
+		e.w.Write([]byte("<!--"))
+		e.w.Write(el.Content)
+		e.w.Write([]byte("-->"))
+		if e.pretty {
+			e.w.Write([]byte{'\n'})
+		}
+	case XML_Tag:
+		if len(visited) > recursionLimit {
+			// We only return I/O errors
 			return nil
 		}
-	}
-	for i := range el.Children {
-		visited[el] = struct{}{}
-		if err := e.encode(&el.Children[i], el, visited); err != nil {
+		if _, ok := visited[el]; ok {
+			// We have a cycle. Leave a comment, but no error
+			e.w.Write([]byte("<!-- cycle detected -->"))
+			return nil
+		}
+		scope := diffScope(parent, el)
+		if err := e.encodeOpenTag(el, scope, len(visited)); err != nil {
 			return err
 		}
-		delete(visited, el)
-	}
-	if err := e.encodeCloseTag(el, len(visited)); err != nil {
-		return err
+		if len(el.Children) == 0 {
+			if len(el.Content) > 0 {
+				e.w.Write(el.Content)
+			} else {
+				return nil
+			}
+		}
+		for i := range el.Children {
+			visited[el] = struct{}{}
+			if err := e.encode(&el.Children[i], el, visited); err != nil {
+				return err
+			}
+			delete(visited, el)
+		}
+		if err := e.encodeCloseTag(el, len(visited)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
