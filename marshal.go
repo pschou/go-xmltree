@@ -103,7 +103,7 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 				io.WriteString(e.w, e.indent)
 			}
 		}
-		io.WriteString(e.w, htmlEscaper.Replace(string(el.Content)))
+		io.WriteString(e.w, htmlEscaper.Replace(el.Content))
 		if e.pretty {
 			e.w.Write([]byte{'\n'})
 		}
@@ -114,7 +114,7 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 			}
 		}
 		e.w.Write([]byte("<!--"))
-		io.WriteString(e.w, strings.ReplaceAll(string(el.Content), "-->", "--&gt;"))
+		io.WriteString(e.w, strings.ReplaceAll(el.Content, "-->", "--&gt;"))
 		e.w.Write([]byte("-->"))
 		if e.pretty {
 			e.w.Write([]byte{'\n'})
@@ -135,7 +135,7 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 		}
 		if len(el.Children) == 0 {
 			if len(el.Content) > 0 {
-				e.w.Write(el.Content)
+				io.WriteString(e.w, htmlEscaper.Replace(el.Content))
 			} else {
 				return nil
 			}

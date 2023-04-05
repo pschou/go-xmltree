@@ -288,7 +288,7 @@ func TestUnmarshal(t *testing.T) {
 	for _, item = range root.Find(&Selector{Label: "item"}) {
 		for i, c := range item.Children {
 			if c.Name.Local == "URL" {
-				item.Children[i].Content = []byte(changedURL)
+				item.Children[i].Content = changedURL
 			}
 		}
 		t.Logf("test unmarshal %s", Marshal(item))

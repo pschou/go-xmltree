@@ -1,9 +1,9 @@
 package xmltree
 
 import (
-	"bytes"
 	"encoding/xml"
 	"sort"
+	"strings"
 )
 
 // Equal returns true if two xmltree.Elements are equal, ignoring
@@ -32,7 +32,7 @@ func equal(a, b *Element, depth int) bool {
 		return false
 	}
 	if len(a.Children) == 0 {
-		return bytes.Equal(bytes.TrimSpace(a.Content), bytes.TrimSpace(b.Content))
+		return strings.TrimSpace(a.Content) == strings.TrimSpace(b.Content)
 	}
 	sort.Sort(byName(a.Children))
 	sort.Sort(byName(b.Children))

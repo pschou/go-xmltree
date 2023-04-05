@@ -14,6 +14,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html/charset"
 )
@@ -57,9 +58,9 @@ type Element struct {
 	// The XML namespace scope at this element's location in the
 	// document.
 	Scope
-	// The raw content contained within this element's start and
-	// end tags. Uses the underlying byte array passed to Parse.
-	Content []byte
+	// The content contained within this element's end tags if no child
+	// Elements are present.
+	Content string
 	// Sub-elements contained within this element.
 	Children []Element
 }
@@ -358,12 +359,21 @@ walk:
 				el.Content = el.Children[0].Content
 				el.Children = nil
 			} else {
-				el.Content = charDat.Bytes()
+				el.Content = string(charDat.Bytes())
 			}
 			break walk
 		case xml.CharData:
 			if keepKinds&XML_CharData == XML_CharData {
-				child := Element{Type: XML_CharData, Content: []byte(strings.TrimSpace(string(tok)))}
+				trimTok := strings.TrimRightFunc(string(tok), unicode.IsSpace)
+				if len(trimTok) < len(tok) && len(trimTok) > 0 {
+					trimTok = trimTok + " "
+				}
+				test := trimTok
+				trimTok = strings.TrimLeftFunc(trimTok, unicode.IsSpace)
+				if len(trimTok) < len(test) {
+					trimTok = " " + trimTok
+				}
+				child := Element{Type: XML_CharData, Content: trimTok}
 				if len(child.Content) > 0 {
 					el.Children = append(el.Children, child)
 				}
@@ -372,17 +382,17 @@ walk:
 			}
 		case xml.Comment:
 			if keepKinds&XML_Comment == XML_Comment {
-				child := Element{Type: XML_Comment, Content: []byte(tok.Copy())}
+				child := Element{Type: XML_Comment, Content: string(tok.Copy())}
 				el.Children = append(el.Children, child)
 			}
 		case xml.ProcInst:
 			if keepKinds&XML_ProcInst == XML_ProcInst {
-				child := Element{Type: XML_ProcInst, Content: []byte(tok.Copy().Inst)}
+				child := Element{Type: XML_ProcInst, Content: string(tok.Copy().Inst)}
 				el.Children = append(el.Children, child)
 			}
 		case xml.Directive:
 			if keepKinds&XML_Directive == XML_Directive {
-				child := Element{Type: XML_Directive, Content: []byte(tok.Copy())}
+				child := Element{Type: XML_Directive, Content: string(tok.Copy())}
 				el.Children = append(el.Children, child)
 			}
 		}
