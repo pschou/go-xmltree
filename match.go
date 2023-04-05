@@ -62,3 +62,19 @@ func (el *Element) matchAnyDeep(match *Selector, d int) *Element {
 	}
 	return nil
 }
+
+// First returns a pointer to the first child of Element
+func (el *Element) First() *Element {
+	if el != nil && len(el.Children) > 0 {
+		return &el.Children[0]
+	}
+	return nil
+}
+
+// Last returns a pointer to the first child of Element
+func (el *Element) Last() *Element {
+	if el != nil && len(el.Children) > 0 {
+		return &el.Children[len(el.Children)-1]
+	}
+	return nil
+}
