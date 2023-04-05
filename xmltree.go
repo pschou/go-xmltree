@@ -11,7 +11,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"sort"
 	"strings"
@@ -65,23 +64,10 @@ type Element struct {
 	Children []Element
 }
 
-// SetContent sets the value of the content escaping any HTML entities
-func (el *Element) SetContent(text string) {
-	el.Content = []byte(htmlEscaper.Replace(text))
-}
-
 var htmlEscaper = strings.NewReplacer(
 	`<`, "&lt;",
 	`>`, "&gt;",
 )
-
-// GetContent gets the value of the content while unescaping any HTML entities
-func (el *Element) GetContent() string {
-	if el != nil {
-		return html.UnescapeString(string(el.Content))
-	}
-	return ""
-}
 
 // The JoinScope method joins two Scopes together. When resolving
 // prefixes using the returned scope, the prefix list in the argument

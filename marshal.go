@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"io"
+	"strings"
 	"text/template"
 )
 
@@ -102,7 +103,7 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 				io.WriteString(e.w, e.indent)
 			}
 		}
-		e.w.Write(el.Content)
+		io.WriteString(e.w, htmlEscaper.Replace(string(el.Content)))
 		if e.pretty {
 			e.w.Write([]byte{'\n'})
 		}
@@ -113,7 +114,7 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 			}
 		}
 		e.w.Write([]byte("<!--"))
-		e.w.Write(el.Content)
+		io.WriteString(e.w, strings.ReplaceAll(string(el.Content), "-->", "--&gt;"))
 		e.w.Write([]byte("-->"))
 		if e.pretty {
 			e.w.Write([]byte{'\n'})

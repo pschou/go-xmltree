@@ -211,7 +211,7 @@ func ExampleMarshal() {
 	for _, el := range root.Find(&xmltree.Selector{Label: "chapter"}) {
 		title := el.MatchOne(&xmltree.Selector{Label: "title"})
 		el.Children = nil
-		el.SetContent(title.GetContent())
+		el.Content = title.Content
 		chapters = append(chapters, *el)
 	}
 	root.Children = chapters
