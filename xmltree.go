@@ -357,7 +357,7 @@ walk:
 				return fmt.Errorf("Expecting </%s>, got </%s>", el.Prefix(el.Name), el.Prefix(tok.Name))
 			}
 			if keepKinds&XML_CharData == XML_CharData && len(el.Children) == 1 && el.Children[0].Type == XML_CharData {
-				el.Content = el.Children[0].Content
+				el.Content = strings.TrimSpace(el.Children[0].Content)
 				el.Children = nil
 			} else {
 				el.Content = string(charDat.Bytes())
