@@ -23,9 +23,9 @@ func (el *Element) Attr(space, local string) string {
 	return ""
 }
 
-// DelAttr removes an XML attribute from an Element's existing Attributes.
+// RemoveAttr removes an XML attribute from an Element's existing Attributes.
 // If the attribute does not exist, no operation is done.
-func (el *Element) DelAttr(space, local string) {
+func (el *Element) RemoveAttr(space, local string) {
 	for i, a := range el.StartElement.Attr {
 		if a.Name.Local != local {
 			continue

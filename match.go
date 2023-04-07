@@ -1,8 +1,35 @@
 package xmltree
 
+import "strings"
+
 type Selector struct {
 	Label, Space string
 	Depth        int
+	Attr         map[string]string
+}
+
+func doMatch(el Element, match *Selector) bool {
+	if el.Type == XML_Tag &&
+		el.Name.Local == match.Label &&
+		(match.Space == "" || match.Space == el.Name.Space) {
+		for k, v := range match.Attr {
+			ns := strings.Split(k, ":")
+			switch len(ns) {
+			case 1:
+				if attr := el.Attr("", ns[0]); attr != v {
+					return false
+				}
+			case 2:
+				if attr := el.Attr(ns[0], ns[1]); attr != v {
+					return false
+				}
+			default:
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // Match returns a slice of matching child Element(s)
@@ -11,9 +38,7 @@ func (el *Element) Match(match *Selector) []*Element {
 	var matches []*Element
 	if el != nil {
 		for i, child := range el.Children {
-			if child.Type == XML_Tag &&
-				child.Name.Local == match.Label &&
-				(match.Space == "" || match.Space == child.Name.Space) {
+			if doMatch(child, match) {
 				matches = append(matches, &el.Children[i])
 			}
 		}
@@ -26,9 +51,7 @@ func (el *Element) Match(match *Selector) []*Element {
 func (el *Element) MatchOne(match *Selector) *Element {
 	if el != nil {
 		for i, child := range el.Children {
-			if child.Type == XML_Tag &&
-				child.Name.Local == match.Label &&
-				(match.Space == "" || match.Space == child.Name.Space) {
+			if doMatch(child, match) {
 				return &el.Children[i]
 			}
 		}
