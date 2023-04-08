@@ -1,35 +1,34 @@
 package xmltree
 
-import "strings"
+import (
+	"encoding/xml"
+)
 
 type Selector struct {
 	Label, Space string
 	Depth        int
-	Attr         map[string]string
+	Attr         []xml.Attr
 }
 
 func doMatch(el Element, match *Selector) bool {
 	if el.Type == XML_Tag &&
 		el.Name.Local == match.Label &&
 		(match.Space == "" || match.Space == el.Name.Space) {
-		for k, v := range match.Attr {
-			ns := strings.Split(k, ":")
-			switch len(ns) {
-			case 1:
-				if attr := el.Attr("", ns[0]); attr != v {
-					return false
+	matchAttr:
+		for _, a := range match.Attr {
+			for _, b := range el.StartElement.Attr {
+				if a.Name.Local == b.Name.Local && a.Name.Space == b.Name.Space {
+					if a.Value != b.Value {
+						return false // Found but wrong value
+					}
+					continue matchAttr
 				}
-			case 2:
-				if attr := el.Attr(ns[0], ns[1]); attr != v {
-					return false
-				}
-			default:
-				return false
 			}
+			return false // Missing attr
 		}
-		return true
+		return true // No more attrs to consider
 	}
-	return false
+	return false // Name is not matchable
 }
 
 // Match returns a slice of matching child Element(s)
