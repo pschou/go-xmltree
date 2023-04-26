@@ -102,7 +102,7 @@ var htmlEscaperMin = strings.NewReplacer(
 
 func escape(s string) string {
 	if strings.Index(s, "<") == -1 {
-		htmlEscaperMin.Replace(s)
+		return htmlEscaperMin.Replace(s)
 	}
 	return htmlEscaper.Replace(s)
 }
