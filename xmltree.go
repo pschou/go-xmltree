@@ -65,12 +65,6 @@ type Element struct {
 	Children []Element
 }
 
-var htmlEscaper = strings.NewReplacer(
-	`<`, "&lt;",
-	`>`, "&gt;",
-	`&`, "&amp;",
-)
-
 // The JoinScope method joins two Scopes together. When resolving
 // prefixes using the returned scope, the prefix list in the argument
 // Scope is searched before that of the receiver Scope.

@@ -90,6 +90,23 @@ type encoder struct {
 	pretty         bool
 }
 
+var htmlEscaper = strings.NewReplacer(
+	`<`, "&lt;",
+	`>`, "&gt;",
+	`&`, "&amp;",
+)
+var htmlEscaperMin = strings.NewReplacer(
+	`>`, "&gt;",
+	`&`, "&amp;",
+)
+
+func escape(s string) string {
+	if strings.Index(s, "<") == -1 {
+		htmlEscaperMin.Replace(s)
+	}
+	return htmlEscaper.Replace(s)
+}
+
 // This could be used to print a subset of an XML document, or a document
 // that has been modified. In such an event, namespace declarations must
 // be "pulled" in, so they can be resolved properly. This is trickier than
@@ -103,7 +120,7 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 				io.WriteString(e.w, e.indent)
 			}
 		}
-		io.WriteString(e.w, htmlEscaper.Replace(el.Content))
+		io.WriteString(e.w, escape(el.Content))
 		if e.pretty {
 			e.w.Write([]byte{'\n'})
 		}
@@ -135,18 +152,18 @@ func (e *encoder) encode(el, parent *Element, visited map[*Element]struct{}) err
 		}
 		if len(el.Children) == 0 {
 			if len(el.Content) > 0 {
-				io.WriteString(e.w, htmlEscaper.Replace(el.Content))
+				io.WriteString(e.w, escape(el.Content))
 			} else {
 				return nil
 			}
 		}
+		visited[el] = struct{}{}
 		for i := range el.Children {
-			visited[el] = struct{}{}
 			if err := e.encode(&el.Children[i], el, visited); err != nil {
 				return err
 			}
-			delete(visited, el)
 		}
+		delete(visited, el)
 		if err := e.encodeCloseTag(el, len(visited)); err != nil {
 			return err
 		}
