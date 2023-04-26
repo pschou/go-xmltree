@@ -96,7 +96,6 @@ var htmlEscaper = strings.NewReplacer(
 	`&`, "&amp;",
 )
 var htmlEscaperMin = strings.NewReplacer(
-	`>`, "&gt;",
 	`&`, "&amp;",
 )
 
