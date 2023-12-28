@@ -5,14 +5,14 @@ import (
 )
 
 type Selector struct {
-	Label, Space string
-	Depth        int
-	Attr         []xml.Attr
+	xml.Name
+	Depth int
+	Attr  []xml.Attr
 }
 
 func doMatch(el Element, match *Selector) bool {
 	if el.Type == XML_Tag &&
-		el.Name.Local == match.Label &&
+		el.Name.Local == match.Name.Local &&
 		(match.Space == "" || match.Space == el.Name.Space) {
 	matchAttr:
 		for _, a := range match.Attr {

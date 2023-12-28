@@ -11,8 +11,8 @@ func (el *Element) Find(match *Selector) []*Element {
 	}
 
 	search := func(el *Element) error {
-		if el.Name.Local == match.Label &&
-			(match.Space == "" || match.Space == el.Name.Space) {
+		if el.Name.Local == match.Name.Local &&
+			(match.Name.Space == "" || match.Name.Space == el.Name.Space) {
 			results = append(results, el)
 		}
 		return nil

@@ -185,7 +185,7 @@ func TestParse(t *testing.T) {
 func TestSearch(t *testing.T) {
 	root := parseDoc(t, exampleDoc)
 
-	result := root.Find(&Selector{Space: "http://schemas.xmlsoap.org/wsdl/", Label: "binding"})
+	result := root.Find(&Selector{Name: xml.Name{Space: "http://schemas.xmlsoap.org/wsdl/", Local: "binding"}})
 	if len(result) != 2 {
 		t.Errorf("Expected Search(\"http://schemas.xmlsoap.org/wsdl/\", \"binding\") to return 2 results, got %d",
 			len(result))
@@ -195,7 +195,7 @@ func TestSearch(t *testing.T) {
 func TestNSResolution(t *testing.T) {
 	root := parseDoc(t, exampleDoc)
 
-	for _, el := range root.Find(&Selector{Space: "http://schemas.xmlsoap.org/wsdl/", Label: "definitions"}) {
+	for _, el := range root.Find(&Selector{Name: xml.Name{Space: "http://schemas.xmlsoap.org/wsdl/", Local: "definitions"}}) {
 		for _, prefix := range []string{"soap", "wsdl", "s", "soap12"} {
 			if name, ok := el.ResolveNS(prefix + ":foo"); !ok {
 				t.Errorf("Failed to resolve %s: prefix at <%s>", prefix, el.Name.Local)
@@ -233,7 +233,7 @@ func TestString(t *testing.T) {
 
 func TestSubstring(t *testing.T) {
 	root := parseDoc(t, exampleDoc)
-	for _, el := range root.Find(&Selector{Space: "http://www.w3.org/2001/XMLSchema", Label: "complexType"}) {
+	for _, el := range root.Find(&Selector{Name: xml.Name{Space: "http://www.w3.org/2001/XMLSchema", Local: "complexType"}}) {
 		s := el.String()
 		parseDoc(t, []byte(s))
 		break
@@ -247,7 +247,7 @@ func TestModification(t *testing.T) {
 	// Remove any non-<li> children from all <ul> elements
 	// in the document.
 	valid := make([]Element, 0, len(root.Children))
-	for _, p := range root.Find(&Selector{Label: "li"}) {
+	for _, p := range root.Find(&Selector{Name: xml.Name{Local: "li"}}) {
 		t.Logf("%#v", *p)
 		valid = append(valid, *p)
 	}
@@ -270,7 +270,7 @@ func TestStringPreserveNS(t *testing.T) {
 	}
 	root = parseDoc(t, doc)
 	t.Logf("%s", doc)
-	if len(root.Find(&Selector{Space: "http://www.w3.org/2001/XMLSchema", Label: "sequence"})) == 0 {
+	if len(root.Find(&Selector{Name: xml.Name{Space: "http://www.w3.org/2001/XMLSchema", Local: "sequence"}})) == 0 {
 		t.Errorf("Could not find <s:sequence> in %s", root.String())
 	}
 }
@@ -285,7 +285,7 @@ func TestUnmarshal(t *testing.T) {
 	var v searchItem
 	const changedURL = "http://i-changed-this/"
 	var item *Element
-	for _, item = range root.Find(&Selector{Label: "item"}) {
+	for _, item = range root.Find(&Selector{Name: xml.Name{Local: "item"}}) {
 		for i, c := range item.Children {
 			if c.Name.Local == "URL" {
 				item.Children[i].Content = changedURL

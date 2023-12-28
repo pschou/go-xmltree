@@ -2,6 +2,7 @@ package xmltree_test
 
 import (
 	"bytes"
+	"encoding/xml"
 	"fmt"
 	"log"
 	"strings"
@@ -27,7 +28,7 @@ func ExampleElement_Search() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, el := range root.Find(&xmltree.Selector{Label: "FullName"}) {
+	for _, el := range root.Find(&xmltree.Selector{Name: xml.Name{Local: "FullName"}}) {
 		fmt.Printf("%s\n", el.Content)
 	}
 
@@ -164,7 +165,7 @@ func ExampleUnmarshal() {
 	}
 
 	// Pull all <revision> items from the input
-	for _, el := range root.Find(&xmltree.Selector{Label: "revision"}) {
+	for _, el := range root.Find(&xmltree.Selector{Name: xml.Name{Local: "revision"}}) {
 		var rev revision
 		if err := xmltree.Unmarshal(el, &rev); err != nil {
 			log.Print(err)
@@ -208,8 +209,8 @@ func ExampleMarshal() {
 		log.Fatal(err)
 	}
 
-	for _, el := range root.Find(&xmltree.Selector{Label: "chapter"}) {
-		title := el.MatchOne(&xmltree.Selector{Label: "title"})
+	for _, el := range root.Find(&xmltree.Selector{Name: xml.Name{Local: "chapter"}}) {
+		title := el.MatchOne(&xmltree.Selector{Name: xml.Name{Local: "title"}})
 		el.Children = nil
 		el.Content = title.Content
 		chapters = append(chapters, *el)
